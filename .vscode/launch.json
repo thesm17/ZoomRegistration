@@ -8,7 +8,7 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Program",
-      "program": "${workspaceFolder}/get.js"
+      "program": "${workspaceFolder}/postAttendeesToShSp.js"
     }
   ]
 }

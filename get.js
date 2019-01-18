@@ -22,7 +22,7 @@ var payload= {
 "COL$E":"308463047",
 "COL$D":"ClarisHealth",
 "COL$C":"ctucker@clarishealth.com",
-"COL$B":"12/12/2018",
+"COL$B":"12/31/2018",
 "COL$A":"12/10/2018 16:52:04",
 "_content_hash":"a963b9b20eee6700938bce5f3b642d70",
 };
@@ -33,7 +33,7 @@ var token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJPVWJlZERLYVRzbXpHan
 * @param Payload was a real line at some point.
 */
 
-//processData(payload);
+processData(payload);
 
 
 /****
@@ -70,6 +70,7 @@ function processData(input)   {
   status.then(function(values){
     console.log(
       `Here is what Zapier will get when it's all finished:\n
+      ${status.toString()}
       ${JSON.stringify(clientData)}\n
       ${values}`);
   })
