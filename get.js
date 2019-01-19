@@ -22,7 +22,7 @@ var payload= {
 "COL$E":"308463047",
 "COL$D":"ClarisHealth",
 "COL$C":"ctucker@clarishealth.com",
-"COL$B":"12/12/2018",
+"COL$B":"12/31/2018",
 "COL$A":"12/10/2018 16:52:04",
 "_content_hash":"a963b9b20eee6700938bce5f3b642d70",
 };
@@ -34,6 +34,12 @@ var token //= 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJPVWJlZERLYVRzbXpH
 * @param Payload was a real line at some point.
 */
 
+<<<<<<< HEAD
+=======
+processData(payload);
+
+
+>>>>>>> bdb9f0a99d1fa9ca792e5f80c8f735305d4bef92
 /****
 // @param input is the zapier webhook data, already run through body-parser. 
 //
@@ -83,9 +89,30 @@ const getRecentWebinars = async() => {
                                 Reason: ${body.code}\n
                                 Error from Zoom: ${body.message}`)
         }
+<<<<<<< HEAD
       })
     return recentWebinars;
   
+=======
+      )});
+    getRecentWebinars.then(function (value) {
+      try{
+        matchCorrectWebinar(clientData,value);
+          Promise.all([registerPrimaryContact(clientData),registerSecondaryContacts(clientData)]).
+          then(function(values) {
+            res(values);
+          }); 
+        
+    }catch(error) {console.error(error); rej(error)}
+  })});
+  status.then(function(values){
+    console.log(
+      `Here is what Zapier will get when it's all finished:\n
+      ${status.toString()}
+      ${JSON.stringify(clientData)}\n
+      ${values}`);
+  })
+>>>>>>> bdb9f0a99d1fa9ca792e5f80c8f735305d4bef92
 }
 
 const  parseWebhookFromWelcomeCallForm = (body) => {
