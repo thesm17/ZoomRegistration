@@ -34,12 +34,9 @@ var token //= 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJPVWJlZERLYVRzbXpH
 * @param Payload was a real line at some point.
 */
 
-<<<<<<< HEAD
-=======
 processData(payload);
 
 
->>>>>>> bdb9f0a99d1fa9ca792e5f80c8f735305d4bef92
 /****
 // @param input is the zapier webhook data, already run through body-parser. 
 //
@@ -89,12 +86,7 @@ const getRecentWebinars = async() => {
                                 Reason: ${body.code}\n
                                 Error from Zoom: ${body.message}`)
         }
-<<<<<<< HEAD
-      })
-    return recentWebinars;
-  
-=======
-      )});
+  })}
     getRecentWebinars.then(function (value) {
       try{
         matchCorrectWebinar(clientData,value);
@@ -112,7 +104,6 @@ const getRecentWebinars = async() => {
       ${JSON.stringify(clientData)}\n
       ${values}`);
   })
->>>>>>> bdb9f0a99d1fa9ca792e5f80c8f735305d4bef92
 }
 
 const  parseWebhookFromWelcomeCallForm = (body) => {

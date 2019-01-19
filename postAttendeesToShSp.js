@@ -20,7 +20,6 @@ get list of participants emails from zoom, then loop through all of them with th
 ***/
 
 //exports
-var async = require("async");
 var request = require("request-promise");
 require('dotenv').config();
 
@@ -44,13 +43,13 @@ const getCourse = (topic) => {
 
   // * Determine which class number
   var today = (new Date()).getDay();
+  if (today<1 || today >5) today = 1;
   var courseNumber = "Class "+today.toString();
   return {courseName: learningPath,
           courseNumber: `, ${courseNumber}`,
           timeNow: (new Date()).toString()}
 
 }
-
 
 async function getParticipants(webinarId){
   var options = { 
@@ -70,7 +69,7 @@ async function getParticipants(webinarId){
       if (e.email.length>4) return e;
     })
     return cleanParticipantList;
-  } catch (err) {console.log(err)}
+  } catch (err) {console.log(err); return err;}
 }
 
 async function getLead(email){
@@ -93,58 +92,157 @@ async function getLead(email){
 
 }
 
+const getUniqueValues = (values) => {
+  var words = values.split(',');
+  var unique = new Set(words);
+  if (unique.has("")) unique.delete("");
+  var uniqueValues="";
+  for (let word of unique.values()){
+    uniqueValues+=(","+word)
+  };
+  return uniqueValues;
+}
+/** 
+
+ This funtion will interate through all participants to see if they're a ShSp contact, and which classes they've already attended.
+ If they are a lead in ShSp, they'll have @param data.method = "updateLeads";  otherwise usefulBody.method = "createLeads"
+ If this is their first webinar, they'll have: @param data.body.date_of_first_webinar_5c41e3c27c51e be the current time.
+ If they aren't a contact yet, 
+
+**/
+
 const updateParticipantLeadRecords = async (participants, topic) => {
   // * Grab which classes they've already attended from ShSp
-  var classesAttended = await Promise.all(participants.map( async(participant) => { 
-    if (participant.email){
-      var usefulBody;
-      var lead = await getLead(participant.email);
-      if (lead) {
-        usefulBody = {
-          firstName: lead.firstName,
-          lastName: lead.lastName,
-          emailAddress: lead.emailAddress,
-          [topic.courseName]: lead[topic.courseName].toString() + topic.courseNumber
-        }
-        if (!lead.date_of_first_webinar_5c41e3c27c51e) 
-          {usefulBody.date_of_first_webinar_5c41e3c27c51e = topic.timeNow}
-      } else {
-        usefulBody = {
+  var classesAttended = await Promise.all(participants.map(async(participant) => { 
+    var data;
+    var lead = await getLead(participant.email);
+    // If lead already exists in ShSP
+    if (lead) {
+      data = {
+          body: {
+            firstName: lead.firstName,
+            lastName: lead.lastName,
+            emailAddress: lead.emailAddress,
+            [topic.courseName]: lead[topic.courseName] + topic.courseNumber
+          },
+          method: "updateLeads"
+      }
+      // If this is the first webinar they've attended
+      if (!lead.date_of_first_webinar_5c41e3c27c51e) 
+        {data.body.date_of_first_webinar_5c41e3c27c51e = topic.timeNow}
+
+      data.body[topic.courseName] = getUniqueValues(data.body[topic.courseName]);
+    } 
+    // If lead doesn't yet exist in ShSp
+    else {
+      data = {
+        body: {
           lastName: participant.name,
           emailAddress: participant.email,
           [topic.courseName]: topic.courseNumber,
           leadStatus: "contact",
           date_of_first_webinar_5c41e3c27c51e: topic.timeNow
-      }
+        },
+        method: "createLeads"
     }
-    return usefulBody    
   }
-  }))
+  return data    
+  }
+  ))
   return classesAttended;
 }
 
-const postNewClassesToShSp = async  (body) => {
+const formatForPost = (participants) => {
+  var newLeads = participants.filter((lead) => {
+    if (lead.method.includes("createLeads")) {return JSON.stringify(lead);}
+  });
+
+  var updateLeads = participants.filter((lead) => {
+    if (lead.method.includes("updateLeads")) {return JSON.stringify(lead);}
+  })
+
+  var newLeadsArray = newLeads.map((lead) => {
+    return lead.body;
+  })
+
+  var updateLeadsArray = updateLeads.map((lead) => {
+    return lead.body;
+  })
+
+return {newLeads: (newLeadsArray),
+        updateLeads: (updateLeadsArray)}
+}
+
+const postLeads = async (leads, method) => {
+  var options = { method: 'POST',
+  url: 'https://api.sharpspring.com/pubapi/v1/',
+  qs: 
+   { accountID: process.env.AccID,
+     secretKey: process.env.SecKey },
+  headers: 
+   { 'cache-control': 'no-cache',
+     'Content-Type': 'application/json' },
+  body: 
+   { method: method,
+     params: {
+       objects: leads,
+      },
+     id: "1001" },
+  json: true };
+try {
+  var lead = await request(options);
+  return lead;
+} catch (err) {return err}
   
 }
 
+const postNewClassesToShSp = async  (allLeads) => { 
+  var newLeadReponse = "No new leads", updateLeadResponse;
+  if (allLeads.newLeads.length>0){
+    newLeadReponse = await postLeads(allLeads.newLeads, "createLeads"); }
+  updateLeadResponse = await postLeads(allLeads.updateLeads, "updateLeads");
+  return {newLeadReponse: newLeadReponse, 
+          updateLeadResponse: updateLeadResponse}
+  
+}
+
+
 async function doIt(req, res) {
   var meetingID = req.body.meetingID, meetingTopic = req.body.meetingTopic;
-
-  var course = getCourse(meetingTopic);
-  var leadRecords = await getParticipants(meetingID);
-  var participantRecords = await updateParticipantLeadRecords(leadRecords, course);
-  var body = JSON.stringify(participantRecords);
-  var response = await postNewClassesToShSp(body);
-  console.log(response);
-  //var classesRegistered = await registerAttendance(participantRecords, course);
-  
+  try {
+    var course = getCourse(meetingTopic);
+    var leadRecords = await getParticipants(meetingID);
+    var participantRecords = await updateParticipantLeadRecords(leadRecords, course);
+    var formattedPost = formatForPost(participantRecords);
+    var result = (await postNewClassesToShSp(formattedPost));
+    //var message = req.query.message || req.body.message || 
+    `Response from Zoom/ShSp: \n ${(result)}`;
+    //res.status(200).send(message);
+    return ({
+      participantRecords: participantRecords.map((lead)=>{return lead.body.emailAddress}),
+      finalResult: {
+        newLeadShSpResult: result.newLeadReponse,
+        updateLeadResult: result.updateLeadResponse,
+        updateLeadResultsExplained: result.updateLeadResponse.result.updates.map((res)=> {return JSON.stringify(res)})
+      }
+              });
+    
+  } catch (err) {
+    console.log(err);
+    //var message = req.query.message || req.body.message || `There was an issue during the process:\n ${err}`;
+    //res.status(200).send(message);
+    return err
+  }
 }
 
 var testData = {
   body: {
     meetingID: "nJ3yHuSsRTWlTYx7hBK8TQ==",
-    meetingTopic: "SharpSpring Virtual Classroom Essential Curriculum"
+    meetingTopic: "SharpSpring Virtual Classroom Essential Curriculum",
+    //message: "",
   }
 }
 
-doIt(testData);
+doIt(testData)
+  .then((response) => {console.log(response)})
+  .catch((err) => {console.error(err)})
