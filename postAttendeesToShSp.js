@@ -237,7 +237,7 @@ async function doIt(req, res) {
 
 var testData = {
   body: {
-    meetingID: "nJ3yHuSsRTWlTYx7hBK8TQ==",
+    meetingID: "hello",
     meetingTopic: "SharpSpring Virtual Classroom Essential Curriculum",
     //message: "",
   }
