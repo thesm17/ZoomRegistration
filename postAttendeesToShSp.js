@@ -3,43 +3,27 @@
 This program receives a webhook from Zoom when the recording from any webinar is finished. 
 The body of that contains @param recording_link,@param meeting_topic, and @param meeting_id .
 
-* todo Use today's day to establish which class they attended
 * todo GET https://api.zoom.us/v2/report/webinars/{webinarId}/participants
 * ! example webinarId is nJ3yHuSsRTWlTYx7hBK8TQ==
+/*/
 
-get list of participants emails from zoom, then loop through all of them with the following:
-  getLeads where "emailAddress": @param participant_email . then class data is stored 
-  Essential curriculum: @param body.result.lead[0].class_1_attended_5c4093bbcf4ab
-
-
-
-* todo for each participant, use their email address to zap that data to ShSp with a payload like
-@param {email, classAttended}
-
-* ShSp field ID for essentials is @param class_1_attended_5c4093bbcf4ab
-***/
-
-//exports
 var request = require("request-promise");
 require('dotenv').config();
 
 
 const getCourse = (topic) => {
   // * Determine which learning path (essential, intermediate, or special topics)
-  var learningPath="", simpleName;
+  var learningPath=""
   if (topic.toString().includes("Essential")) {
     learningPath = "class_1_attended_5c4093bbcf4ab";
-    simpleName = "essential"
   }
     else if (topic.toString().includes("Intermediate")) {
     learningPath = "intermediate_classes_5c40de11e10cf";
-    simpleName = "intermediate"
     
   } 
     else if (topic.toString().includes("Special")) {
     learningPath = "special_topics_5c40de7fc9003";
-    simpleName = "special"    
-  } else {console.error("That's not a recognized kind of course."); return "Invalid class topic";}
+  } else {console.error("That's not a recognized kind of course."); throw new Error(topic + "is not a valid class topic");}
 
   // * Determine which class number
   var today = (new Date()).getDay();
@@ -69,7 +53,9 @@ async function getParticipants(webinarId){
       if (e.email.length>4) return e;
     })
     return cleanParticipantList;
-  } catch (err) {console.log(err); return err;}
+  } catch (err) {
+    console.log(err); 
+    throw new Error(err)}
 }
 
 async function getLead(email){
@@ -102,14 +88,6 @@ const getUniqueValues = (values) => {
   };
   return uniqueValues;
 }
-/** 
-
- This funtion will interate through all participants to see if they're a ShSp contact, and which classes they've already attended.
- If they are a lead in ShSp, they'll have @param data.method = "updateLeads";  otherwise usefulBody.method = "createLeads"
- If this is their first webinar, they'll have: @param data.body.date_of_first_webinar_5c41e3c27c51e be the current time.
- If they aren't a contact yet, 
-
-**/
 
 const updateParticipantLeadRecords = async (participants, topic) => {
   // * Grab which classes they've already attended from ShSp
@@ -199,13 +177,83 @@ try {
 const postNewClassesToShSp = async  (allLeads) => { 
   var newLeadReponse = "No new leads", updateLeadResponse;
   if (allLeads.newLeads.length>0){
+    // [Start postLeads]
+    // -- Post leads, new and updates, to ShSp.
+    // -- Handle connection errors and leads not existing
     newLeadReponse = await postLeads(allLeads.newLeads, "createLeads"); }
   updateLeadResponse = await postLeads(allLeads.updateLeads, "updateLeads");
+  // [End postLeads]
   return {newLeadReponse: newLeadReponse, 
           updateLeadResponse: updateLeadResponse}
   
 }
 
+exports.postAttendeesToShSp = async (req, res) => {
+
+  var meetingID = req.body.meeting_id, meetingTopic = req.body.meeting_topic;
+  try {
+
+    // [Start getCouse] 
+    // -- get the class topic name and number from Zoom
+    var course = getCourse(meetingTopic);
+      console.log(course);
+    // [end getCourse]
+
+    // [Start getParticipants] 
+    // -- Use the meetingID provided by webhook to query Zoom for list of participants.
+    // 
+    // Clean out empty records and throw an error if meetingID doesn't exist.
+    var leadRecords = await getParticipants(meetingID);
+      
+    // [end getParticipants]
+
+    // [Start updateParticipantLeadRecords]
+    // -- Query ShSp to see if contact records exist, 
+    //    and for those that do, see which classes they've already attended of today's topic
+    // -- Handle if the email address does or doesn't exist, and whether or not they've attended classes
+    var participantRecords = await updateParticipantLeadRecords(leadRecords, course);
+      console.log("Participant records: ");
+      participantRecords.map((lead)=> {console.log(lead.body.emailAddress)})    
+    // [end updateParticipantLeadRecords]
+
+    // [Start formatForPost]
+    // -- Split participants into new leads and update leads and return two separate array objects
+    var formattedPost = formatForPost(participantRecords);
+    // [end formateForPost]
+
+    // [Start postNewClassesToShSp]
+    // -- Post new and updated records to shapeInside
+    // Additional comments inside function
+    var result = (await postNewClassesToShSp(formattedPost));
+    // [End postNewClassesToShSp]
+
+    // Prep message for sending
+    var leadResultsExplained = result.updateLeadResponse.result.updates.map((res)=> {return JSON.stringify(res)})
+    
+    var message = req.query.message || req.body.message || 
+    (`Response from Zoom/ShSp: \n ${JSON.stringify(result)}`
+    );
+
+    //Send response to CGF
+    res.status(200).send(message);
+
+    // For debug, printing -- will this happen anywhere? 
+    return ({
+      participantRecords: participantRecords.map((lead)=>{return lead.body.emailAddress}),
+      finalResult: {
+        newLeadShSpResult: result.newLeadReponse,
+        updateLeadResult: result.updateLeadResponse,
+        updateLeadResultsExplained: result.updateLeadResponse.result.updates.map((res)=> {return JSON.stringify(res)})
+      }
+              });
+    
+  } catch (err) {
+    console.log(err);
+    var message = req.query.message || req.body.message || `There was an issue during the process:\n ${err}`;
+    res.status(200).send(message);
+    return err
+  }
+}
 
 async function doIt(req, res) {
   var meetingID = req.body.meetingID, meetingTopic = req.body.meetingTopic;
@@ -237,12 +285,20 @@ async function doIt(req, res) {
 
 var testData = {
   body: {
-    meetingID: "hello",
+    meetingID: "nJ3yHuSsRTWlTYx7hBK8TQ==",
     meetingTopic: "SharpSpring Virtual Classroom Essential Curriculum",
-    //message: "",
   }
 }
 
-doIt(testData)
-  .then((response) => {console.log(response)})
-  .catch((err) => {console.error(err)})
+/* 
+data={  "meeting_id": "nJ3yHuSsRTWlTYx7hBK8TQ==",
+        "meeting_topic": "SharpSpring Virtual Classroom Essential Curriculum"}
+ 
+functions deploy postAttendeesToShSp --env-vars-file .env.yaml --trigger-http 
+
+curl -X POST "http://localhost:8010/marine-copilot-224719/us-central1/postAttendeesToShSp " -H "Content-Type:application/json" --data '{"meeting_id":"nJ3yHuSsRTWlTYx7hBK8TQ==","meeting_topic":"SharpSpring Virtual Classroom Essential Curriculum"}'
+
+functions logs read
+
+$ gcloud beta functions deploy helloEnvVars --trigger-http --update-env-vars SUCH_SECRET=Updated --project <projectID>
+*/

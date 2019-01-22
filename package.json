@@ -2,19 +2,18 @@
   "name": "zoominvites",
   "version": "1.0.0",
   "description": "",
-  "main": "get.js",
+  "main": "postAttendeesToShSp.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "async": "^2.6.1",
+    "@google-cloud/storage": "^2.3.4",
     "body-parser": "^1.18.3",
     "dotenv": "^6.2.0",
     "fetch": "^1.1.0",
     "googleapis": "^27.0.0",
-    "jsonwebtoken": "^8.4.0",
     "request": "^2.88.0",
     "request-promise": "^4.2.2"
   }
