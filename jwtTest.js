@@ -1,20 +1,11 @@
-var jwt = require('jsonwebtoken');
-let expiryTime = Date.now()+60000
+require('dotenv').config();
 
-// {
-//   "alg": "HS256",
-//   "typ": "JWT"
-// }
+// [START] Configure Zoom api Token
+const jwt = require('jsonwebtoken');
 
-// {
-//   "iss":"OUbedDKaTsmzGjpw2-U83w",
-//   "exp":`${expiryTime}`
-// }
-
-// HMACSHA256(
-//   base64UrlEncode(header) + "." +
-//   base64UrlEncode(payload),
-  
-// your-256-bit-secret
-
-// )
+const payload = {
+    iss: `${process.env.ZoomAccID}`,
+    exp: ((new Date()).getTime() + 5000)
+};
+const token = "Bearer " + jwt.sign(payload, `${process.env.ZoomSecKey}`);
+// [END] Configure Zoom api Token

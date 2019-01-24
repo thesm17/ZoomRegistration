@@ -1,15 +1,23 @@
 var request = require("request-promise");
 require('dotenv').config();
 
+// [START] Configure Zoom api Token
+const jwt = require('jsonwebtoken');
+
+const payload = {
+    iss: `${process.env.ZoomAccID}`,
+    exp: ((new Date()).getTime() + 5000)
+};
+const token = "Bearer " + jwt.sign(payload, `${process.env.ZoomSecKey}`);
+// [END] Configure Zoom api Token
+
 var demoTimeField = "group_demo_date_time_selected_5bec9213aaa16",
  demoTypeField ="group_appointment_type_5bd8966a8d9dd",
  agencyDemo = "Live group demo for your Agency",
  endUserDemo = "Live group demo for your Business",
  clientData;
 
-var token = process.env.ZoomToken, 
-    agencyEmail = "agencydemos@sharpspring.com",   
-    endUserEmail = "businessdemos@sharpspring.com";
+var agencyEmail = "agencydemos@sharpspring.com", endUserEmail = "businessdemos@sharpspring.com";
 
 function parseWebhookFromDemoForm(body) {
   /*
@@ -45,7 +53,7 @@ const getRecentMeetings = async (client) => {
     url: `https://api.zoom.us/v2/users/${client.accountEmail}/meetings?page_size=3000&page_number=1`,
     headers: 
     {'cache-control': 'no-cache',
-      Authorization: `${process.env.ZoomToken}`,
+      Authorization: token,
       'Content-Type': 'application/json' } };
   try {
     var webinars = await (request(options));
@@ -97,7 +105,7 @@ const registerContact = async (clientData) => {
       url: `https://api.zoom.us/v2/meetings/${clientData.meetingID}/registrants`,
       headers:{
         'cache-control': 'no-cache',
-        Authorization: `${process.env.ZoomToken}`,
+        Authorization: token,
         'Content-Type': 'application/json' },
       body: jsonBody };
     try {

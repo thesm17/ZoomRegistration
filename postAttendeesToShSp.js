@@ -10,6 +10,16 @@ The body of that contains @param recording_link,@param meeting_topic, and @param
 var request = require("request-promise");
 require('dotenv').config();
 
+// [START] Configure Zoom api Token
+const jwt = require('jsonwebtoken');
+
+const payload = {
+    iss: `${process.env.ZoomAccID}`,
+    exp: ((new Date()).getTime() + 5000)
+};
+const token = "Bearer " + jwt.sign(payload, `${process.env.ZoomSecKey}`);
+// [END] Configure Zoom api Token
+
 
 const getCourse = (topic) => {
   // * Determine which learning path (essential, intermediate, or special topics)
@@ -41,7 +51,7 @@ async function getParticipants(webinarId){
     url: `https://api.zoom.us/v2/report/webinars/${webinarId}/participants`,
     headers: 
     {'cache-control': 'no-cache',
-      Authorization: `${process.env.ZoomToken}`,
+      Authorization: token,
       'Content-Type': 'application/json' } };
   try {
     var result = await (request(options));

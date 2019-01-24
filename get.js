@@ -1,6 +1,16 @@
 var request = require('request-promise');
 require('dotenv').config();
 
+// [START] Configure Zoom api Token
+const jwt = require('jsonwebtoken');
+
+const payload = {
+    iss: `${process.env.ZoomAccID}`,
+    exp: ((new Date()).getTime() + 5000)
+};
+const token = "Bearer " + jwt.sign(payload, `${process.env.ZoomSecKey}`);
+// [END] Configure Zoom api Token
+
 var testData = {
 "COL$L":"smitty.penman+"+Math.floor(Math.random()*1000)+"@sharpspring.com - Jason",
 "COL$B": (new Date()),
@@ -26,7 +36,7 @@ const getRecentWebinars = async() => {
     url: `https://api.zoom.us/v2/users/qr3FSl74TEuOzC4jqlo36g/webinars?page_size=3000&page_number=1`,
     headers: 
     {'cache-control': 'no-cache',
-      Authorization: `${process.env.ZoomToken}`,
+      Authorization: token,
       'Content-Type': 'application/json' } };
   try {
     var webinars = await (request(options));
@@ -117,7 +127,7 @@ const registerPrimaryContact = async (clientData) => {
       url: `https://api.zoom.us/v2/webinars/${clientData.meetingID}/registrants`,
       headers:{
         'cache-control': 'no-cache',
-        Authorization: `${process.env.ZoomToken}`,
+        Authorization: token,
         'Content-Type': 'application/json' },
       body: jsonBody };
     try {
@@ -145,7 +155,7 @@ const registerSecondaryContacts = async (clientData) => {
         url: `https://api.zoom.us/v2/webinars/${clientData.meetingID}/registrants`,
         headers:{
           'cache-control': 'no-cache',
-          Authorization: `${process.env.ZoomToken}`,
+          Authorization: token,
           'Content-Type': 'application/json' },
           body: jsonBody };
       try {
