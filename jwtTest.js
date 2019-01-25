@@ -9,3 +9,4 @@ const payload = {
 };
 const token = "Bearer " + jwt.sign(payload, `${process.env.ZoomSecKey}`);
 // [END] Configure Zoom api Token
+console.log(token);
